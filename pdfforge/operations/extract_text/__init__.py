@@ -1,0 +1,1 @@
+# Extract text operation placeholder.
