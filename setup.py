@@ -4,13 +4,13 @@ from setuptools import setup, find_packages
 
 setup(
     name="pdfforge",
-    version="0.1.0",
+    version="1.0.1",
     description="A comprehensive, extensible PDF toolkit in Python.",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
-    author="Your Name",
+    author="Roy",
     author_email="your.email@example.com",
-    url="https://github.com/yourusername/PDFForge",
+    url="https://github.com/roy_twsl/PDFForge",
     packages=find_packages(),
     install_requires=["PyMuPDF", "pypdf"],
     entry_points={

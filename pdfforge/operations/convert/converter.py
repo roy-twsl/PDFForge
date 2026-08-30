@@ -1,7 +1,7 @@
 """Core converter that turns PDF pages into images using PyMuPDF."""
 
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Callable  # 👈 اضافه شد
 import fitz  # PyMuPDF
 
 from pdfforge.core.interfaces import IOperation, ILogger, IFileNamingStrategy, IImageSaver
@@ -28,6 +28,7 @@ class PdfToImageConverter(IOperation):
         zoom: float = 2.0,
         image_format: str = "png",
         output_dir_name: str = "images",
+        progress_callback: Optional[Callable[[int, int], None]] = None,  # 👈 اضافه شد
     ):
         """
         Initialize the converter with strategies and settings.
@@ -39,6 +40,7 @@ class PdfToImageConverter(IOperation):
             zoom: Scaling factor (e.g., 2.0 = 2x resolution).
             image_format: 'png' or 'jpg'.
             output_dir_name: Subdirectory name relative to PDF's parent.
+            progress_callback: Optional callback function(current_page, total_pages).  # 👈 اضافه شد
         """
         self.naming_strategy = naming_strategy or SequentialFileNamingStrategy()
         self.image_saver = image_saver or LocalImageSaver()
@@ -46,6 +48,7 @@ class PdfToImageConverter(IOperation):
         self.zoom = zoom
         self.image_format = image_format.lower()
         self.output_dir_name = output_dir_name
+        self.progress_callback = progress_callback  # 👈 ذخیره شد
 
     def execute(self, pdf_path: Path, **kwargs) -> List[Path]:
         """
@@ -99,12 +102,17 @@ class PdfToImageConverter(IOperation):
                 # Save the image via the injected saver
                 self.image_saver.save(pix.tobytes(), file_path)
                 saved_files.append(file_path)
-                self.logger.debug(f"Saved page {page_num+1} → {filename}")
+
+                # 👇 Call progress callback if provided (NEW)
+                if self.progress_callback:
+                    self.progress_callback(page_num + 1, total_pages)
+
+                # Debug message removed to avoid clutter
+                # self.logger.debug(f"Saved page {page_num+1} → {filename}")
 
             except Exception as e:
                 self.logger.error(f"Failed to convert page {page_num+1}: {e}")
                 # Continue with the next page; we don't stop the whole process.
-                # Optionally, you could re-raise here if you want to fail fast.
 
         doc.close()
         self.logger.info(f"Completed. {len(saved_files)} images saved in '{output_dir}'")

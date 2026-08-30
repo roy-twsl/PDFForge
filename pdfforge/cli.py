@@ -16,7 +16,7 @@ from typing import List, Optional
 from pdfforge.services.pdf_service import PDFService
 from pdfforge.core.logger import ConsoleLogger
 
-from rich.console import Console, Group
+from rich.console import Console
 from rich.panel import Panel
 from rich.progress import (
     Progress,
@@ -36,7 +36,46 @@ from rich import box
 # ============================================================
 
 console = Console()
-logger = ConsoleLogger()
+
+
+# ============================================================
+# Custom Logger - suppresses DEBUG messages
+# ============================================================
+
+class CliLogger(ConsoleLogger):
+    """Logger that does NOT print DEBUG messages."""
+    
+    def debug(self, message: str) -> None:
+        """Override to suppress DEBUG messages."""
+        pass  # Do nothing
+
+
+logger = CliLogger()
+
+
+# ============================================================
+# Clean Shell Operators (NEW)
+# ============================================================
+
+def clean_shell_operators(args: List[str]) -> List[str]:
+    """
+    Remove shell operators like &, |, ;, &&, ||, >, <, etc.
+    from the argument list.
+
+    This allows users to accidentally type 'convert & file.pdf'
+    and still have it work correctly.
+    """
+    # List of common shell operators to filter out
+    operators = {
+        '&', '|', ';', '&&', '||', '>', '<', '>>', '<<', '|&', ';&', ';;',
+    }
+    
+    cleaned = []
+    for arg in args:
+        if arg not in operators and not arg.startswith('&') and not arg.startswith('|'):
+            cleaned.append(arg)
+    
+    return cleaned
 
 
 # ============================================================
@@ -208,6 +247,9 @@ def handle_convert_command(
 ) -> bool:
     """Handle 'convert' command. Returns True on success."""
 
+    # Clean shell operators from arguments (NEW)
+    args = clean_shell_operators(args)
+
     parser = argparse.ArgumentParser(
         prog="convert",
         description="Convert PDF to images",
@@ -311,7 +353,7 @@ def handle_convert_command(
     console.print()
 
     # --------------------------------------------------------
-    # Conversion
+    # Conversion with Progress Callback
     # --------------------------------------------------------
 
     try:
@@ -326,7 +368,7 @@ def handle_convert_command(
             ),
             TimeElapsedColumn(),
             console=console,
-            transient=True,
+            transient=False,
         ) as progress:
 
             task = progress.add_task(
@@ -334,21 +376,36 @@ def handle_convert_command(
                 total=100,
             )
 
+            # Define callback to update progress
+            def update_progress(current: int, total: int) -> None:
+                if total > 0:
+                    percent = (current / total) * 100
+                    progress.update(
+                        task,
+                        completed=percent,
+                        description=f"[cyan]Converting page {current} of {total}...",
+                    )
+
+            # Execute conversion with callback
             result = service.convert_to_images(
                 pdf_path=pdf_path,
                 zoom=parsed_args.zoom,
                 output_format=parsed_args.format,
+                progress_callback=update_progress,
             )
 
+            # Ensure 100% completion
             progress.update(
                 task,
                 completed=100,
+                description="[green]✓ Conversion complete![/]",
             )
 
         # ----------------------------------------------------
-        # Success
+        # Success - Show limited output
         # ----------------------------------------------------
 
+        console.print()
         console.print(
             f"[bold green]✅ Success![/] "
             f"Generated [cyan]{len(result)}[/] images."
@@ -356,10 +413,14 @@ def handle_convert_command(
 
         console.print()
 
-        for img_path in result:
-            console.print(
-                f"   [dim]• {img_path}[/]"
-            )
+        # Show only first 5 files to avoid clutter
+        if len(result) <= 5:
+            for img_path in result:
+                console.print(f"   [dim]• {img_path}[/]")
+        else:
+            for img_path in result[:5]:
+                console.print(f"   [dim]• {img_path}[/]")
+            console.print(f"   [dim]... and {len(result) - 5} more[/]")
 
         console.print()
 
@@ -414,6 +475,13 @@ def run_non_interactive(args: List[str]) -> None:
 
     if not args:
         return
+
+    # Clean shell operators (NEW)
+    args = clean_shell_operators(args)
+
+    if not args:
+        console.print("[red]❌ No command provided.[/]")
+        sys.exit(1)
 
     cmd = args[0].lower()
 
@@ -475,6 +543,12 @@ def interactive_shell() -> None:
 
             if parts is None:
                 continue
+
+            if not parts:
+                continue
+
+            # Clean shell operators (NEW)
+            parts = clean_shell_operators(parts)
 
             if not parts:
                 continue
