@@ -437,7 +437,7 @@ See the `LICENSE` file for the complete license text.
 
 ---
 
-# 👤 Project Maintainer
+#  Project Maintainer
 
 **Roy**
 
