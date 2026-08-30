@@ -14,8 +14,8 @@ setup(
     packages=find_packages(),
     install_requires=["PyMuPDF", "pypdf"],
     entry_points={
-        "console_scripts": [
-            "pdfforge = pdfforge.cli:main",
+    "console_scripts": [
+        "pdfforge = pdfforge.cli:main",
         ],
     },
     classifiers=[

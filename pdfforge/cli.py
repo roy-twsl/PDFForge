@@ -1,94 +1,640 @@
-"""Command-line interface for PDFForge."""
+#!/usr/bin/env python3
+"""Interactive and non-interactive CLI for PDFForge.
+
+Usage:
+  pdfforge                       # Interactive shell
+  pdfforge convert file.pdf ...  # Non-interactive command
+  pdfforge --help                # Show help
+"""
 
 import argparse
+import shlex
 import sys
 from pathlib import Path
+from typing import List, Optional
+
 from pdfforge.services.pdf_service import PDFService
 from pdfforge.core.logger import ConsoleLogger
 
+from rich.console import Console, Group
+from rich.panel import Panel
+from rich.progress import (
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    BarColumn,
+    TimeElapsedColumn,
+)
+from rich.prompt import Prompt
+from rich.table import Table
+from rich.text import Text
+from rich import box
 
-def main():
-    """Entry point for the `pdfforge` CLI command."""
-    parser = argparse.ArgumentParser(
-        description="PDFForge – master your PDF files."
+
+# ============================================================
+# Console
+# ============================================================
+
+console = Console()
+logger = ConsoleLogger()
+
+
+# ============================================================
+# PDFForge ASCII Logo
+# ============================================================
+
+PDFFORGE_LOGO = r"""
+██████╗  ██████╗ ███████╗███████╗ ██████╗ ██████╗  ██████╗ ███████╗
+██╔══██╗██╔═══██╗██╔════╝██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝
+██████╔╝██║   ██║█████╗  █████╗  ██║   ██║██████╔╝██║  ███╗█████╗
+██╔═══╝ ██║   ██║██╔══╝  ██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝
+██║     ╚██████╔╝███████╗██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗
+╚═╝      ╚═════╝ ╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
+"""
+
+
+# ============================================================
+# Header
+# ============================================================
+
+def print_header() -> None:
+    """Display the PDFForge application header."""
+
+    logo = Text(
+        PDFFORGE_LOGO,
+        style="bold white",
+        justify="center",
+        no_wrap=True,
     )
-    subparsers = parser.add_subparsers(dest="command", required=True)
 
-    # Subcommand: convert
-    convert_parser = subparsers.add_parser("convert", help="Convert PDF to images")
-    # Use nargs="*" to accept path parts separately (handles paths with spaces)
-    convert_parser.add_argument(
+    header = Panel(
+        logo,
+        title="[bold cyan]PDFForge[/]",
+        title_align="center",
+        subtitle="[bold cyan]Python PDF Toolkit[/]",
+        subtitle_align="center",
+        border_style="cyan",
+        box=box.ROUNDED,
+        padding=(1, 2),
+        expand=False,
+    )
+
+    console.print(header)
+    console.print()
+
+
+# ============================================================
+# Welcome
+# ============================================================
+
+def show_welcome() -> None:
+    """Show welcome message."""
+
+    console.print(
+        "[bold green]📚 Welcome to PDFForge Interactive Shell![/]"
+    )
+
+    console.print(
+        "[dim]Type a command or 'help' for available commands. "
+        "Type 'exit' or 'quit' to leave.[/]"
+    )
+
+    console.print()
+
+
+# ============================================================
+# Help
+# ============================================================
+
+def show_help() -> None:
+    """Display help in interactive shell."""
+
+    table = Table(
+        title="[bold cyan]📚 Available Commands[/]",
+        box=box.ROUNDED,
+        header_style="bold blue",
+        border_style="cyan",
+    )
+
+    table.add_column(
+        "Command",
+        style="cyan",
+        no_wrap=True,
+    )
+
+    table.add_column(
+        "Description",
+        style="white",
+    )
+
+    table.add_column(
+        "Example",
+        style="yellow",
+    )
+
+    table.add_row(
+        "convert",
+        "Convert PDF to images",
+        "convert document.pdf --zoom 2.0",
+    )
+
+    table.add_row(
+        "convert (with spaces)",
+        "Path with spaces, no quotes needed",
+        "convert D:/My Docs/report.pdf",
+    )
+
+    table.add_row(
+        "merge",
+        "Merge PDFs (coming soon)",
+        "merge file1.pdf file2.pdf --output merged.pdf",
+    )
+
+    table.add_row(
+        "help",
+        "Show this help message",
+        "help",
+    )
+
+    table.add_row(
+        "exit / quit",
+        "Exit the interactive shell",
+        "exit",
+    )
+
+    console.print(table)
+    console.print()
+
+    examples = Panel(
+        "[bold]Quick Examples:[/]\n"
+        "  [cyan]convert document.pdf --zoom 2.5 --format png[/]\n"
+        "  [cyan]convert \"My Report.pdf\" --format jpg[/]\n"
+        "  [cyan]merge chapter1.pdf chapter2.pdf --output full_book.pdf[/]\n"
+        "  [cyan]help[/]\n"
+        "  [cyan]exit[/]",
+        title="[bold yellow]💡 Examples[/]",
+        border_style="yellow",
+        box=box.ROUNDED,
+    )
+
+    console.print(examples)
+
+
+# ============================================================
+# Command Parser
+# ============================================================
+
+def parse_command_line(cmd_line: str) -> Optional[List[str]]:
+    """Parse a command line respecting quotes."""
+
+    try:
+        return shlex.split(cmd_line)
+
+    except ValueError as exc:
+        console.print(
+            f"[red]❌ Error parsing command:[/] {exc}"
+        )
+
+        return None
+
+
+# ============================================================
+# Convert Command
+# ============================================================
+
+def handle_convert_command(
+    args: List[str],
+    service: PDFService,
+) -> bool:
+    """Handle 'convert' command. Returns True on success."""
+
+    parser = argparse.ArgumentParser(
+        prog="convert",
+        description="Convert PDF to images",
+        add_help=False,
+    )
+
+    parser.add_argument(
         "input_parts",
         nargs="*",
-        help="Path to the input PDF file (supports spaces without quotes)"
     )
-    convert_parser.add_argument(
+
+    parser.add_argument(
         "--zoom",
         type=float,
         default=2.0,
-        help="Zoom factor for image quality (higher = better quality)"
     )
-    convert_parser.add_argument(
+
+    parser.add_argument(
         "--format",
         choices=["png", "jpg"],
         default="png",
-        help="Output image format"
     )
 
-    # Subcommand: merge (placeholder for future implementation)
-    merge_parser = subparsers.add_parser("merge", help="Merge multiple PDFs into one")
-    merge_parser.add_argument("inputs", nargs="+", help="List of PDF files to merge")
-    merge_parser.add_argument("--output", required=True, help="Output merged PDF file path")
+    try:
+        parsed_args = parser.parse_args(args)
 
-    # Parse command-line arguments
-    args = parser.parse_args()
+    except SystemExit:
+        console.print(
+            "[red]❌ Invalid arguments for 'convert' command.[/]"
+        )
 
-    # Initialize logger and service
-    logger = ConsoleLogger()
-    service = PDFService(logger=logger)
+        console.print(
+            "[yellow]💡 Usage: "
+            "convert <pdf_file> "
+            "[--zoom ZOOM] "
+            "[--format {png,jpg}][/]"
+        )
+
+        return False
+
+    if not parsed_args.input_parts:
+        console.print(
+            "[red]❌ Error:[/] No input file specified."
+        )
+
+        console.print(
+            "[yellow]💡 Usage: "
+            "convert <pdf_file> "
+            "[--zoom ZOOM] "
+            "[--format {png,jpg}][/]"
+        )
+
+        return False
+
+    raw_path = (
+        " ".join(parsed_args.input_parts)
+        if len(parsed_args.input_parts) > 1
+        else parsed_args.input_parts[0]
+    )
+
+    pdf_path = Path(raw_path).resolve()
+
+    # --------------------------------------------------------
+    # Validate input
+    # --------------------------------------------------------
+
+    if not pdf_path.exists():
+        console.print(
+            f"[red]❌ File not found:[/] {pdf_path}"
+        )
+
+        return False
+
+    if not pdf_path.is_file():
+        console.print(
+            f"[red]❌ Input path is not a file:[/] {pdf_path}"
+        )
+
+        return False
+
+    # --------------------------------------------------------
+    # Conversion information
+    # --------------------------------------------------------
+
+    console.print()
+
+    console.print(
+        f"[bold cyan]📄 Converting:[/] "
+        f"[white]{pdf_path.name}[/]"
+    )
+
+    console.print(
+        f"[dim]   Location: {pdf_path.parent}[/]"
+    )
+
+    console.print(
+        f"[dim]   Zoom: {parsed_args.zoom} | "
+        f"Format: {parsed_args.format}[/]"
+    )
+
+    console.print()
+
+    # --------------------------------------------------------
+    # Conversion
+    # --------------------------------------------------------
 
     try:
-        if args.command == "convert":
-            # Reconstruct the full path from individual parts
-            # This allows users to omit quotes even if the path contains spaces
-            if not args.input_parts:
-                logger.error("No input file specified.")
-                sys.exit(1)
+        with Progress(
+            SpinnerColumn(),
+            TextColumn(
+                "[progress.description]{task.description}"
+            ),
+            BarColumn(),
+            TextColumn(
+                "[progress.percentage]{task.percentage:>3.0f}%"
+            ),
+            TimeElapsedColumn(),
+            console=console,
+            transient=True,
+        ) as progress:
 
-            # If the user used quotes, the entire path is a single element
-            if len(args.input_parts) == 1:
-                raw_path = args.input_parts[0]
-            else:
-                # Otherwise, join all parts with spaces to reconstruct the full path
-                raw_path = " ".join(args.input_parts)
-
-            # Convert to absolute Path object
-            pdf_path = Path(raw_path).resolve()
-
-            # Execute the conversion
-            result = service.convert_to_images(
-                pdf_path=pdf_path,
-                zoom=args.zoom,
-                output_format=args.format,
+            task = progress.add_task(
+                "[cyan]Converting pages...",
+                total=100,
             )
 
-            logger.info(f"Successfully generated {len(result)} images.")
-            for img_path in result:
-                print(f"  - {img_path}")
+            result = service.convert_to_images(
+                pdf_path=pdf_path,
+                zoom=parsed_args.zoom,
+                output_format=parsed_args.format,
+            )
 
-        elif args.command == "merge":
-            # Placeholder: merge functionality is not yet implemented
-            logger.error("Merge operation is not yet implemented.")
-            sys.exit(1)
+            progress.update(
+                task,
+                completed=100,
+            )
 
-        else:
-            logger.error(f"Unknown command: {args.command}")
-            sys.exit(1)
+        # ----------------------------------------------------
+        # Success
+        # ----------------------------------------------------
 
-    except Exception as e:
-        logger.error(f"Command failed: {e}")
+        console.print(
+            f"[bold green]✅ Success![/] "
+            f"Generated [cyan]{len(result)}[/] images."
+        )
+
+        console.print()
+
+        for img_path in result:
+            console.print(
+                f"   [dim]• {img_path}[/]"
+            )
+
+        console.print()
+
+        return True
+
+    except KeyboardInterrupt:
+        console.print(
+            "\n[yellow]⚠️ Conversion interrupted by user.[/]"
+        )
+
+        return False
+
+    except Exception as exc:
+        console.print(
+            f"[red]❌ Conversion failed:[/] {exc}"
+        )
+
+        return False
+
+
+# ============================================================
+# Merge Command
+# ============================================================
+
+def handle_merge_command(args: List[str]) -> bool:
+    """Handle 'merge' command placeholder."""
+
+    console.print()
+
+    merge_panel = Panel(
+        "[yellow]⚠️ Merge operation is not yet implemented.[/]\n\n"
+        "[dim]This feature is planned for future releases.[/]\n\n"
+        "[dim]Follow development at:[/]\n"
+        "[cyan]https://github.com/roy-twsl/PDFForge[/]",
+        title="[bold yellow]Merge PDFs[/]",
+        border_style="yellow",
+        box=box.ROUNDED,
+    )
+
+    console.print(merge_panel)
+    console.print()
+
+    return False
+
+
+# ============================================================
+# Non-Interactive Mode
+# ============================================================
+
+def run_non_interactive(args: List[str]) -> None:
+    """Run a single command in non-interactive mode."""
+
+    if not args:
+        return
+
+    cmd = args[0].lower()
+
+    service = PDFService(
+        logger=logger
+    )
+
+    if cmd == "convert":
+        handle_convert_command(
+            args[1:],
+            service,
+        )
+
+    elif cmd == "merge":
+        handle_merge_command(
+            args[1:]
+        )
+
+    else:
+        console.print(
+            f"[red]❌ Unknown command:[/] '{cmd}'"
+        )
+
+        console.print(
+            "[yellow]💡 Run 'pdfforge --help' "
+            "for available commands.[/]"
+        )
+
         sys.exit(1)
 
+
+# ============================================================
+# Interactive Shell
+# ============================================================
+
+def interactive_shell() -> None:
+    """Run the interactive PDFForge shell."""
+
+    print_header()
+    show_welcome()
+    show_help()
+
+    service = PDFService(
+        logger=logger
+    )
+
+    while True:
+        try:
+            cmd_line = Prompt.ask(
+                "[bold cyan]PDFForge[/]"
+            )
+
+            if not cmd_line or cmd_line.strip() == "":
+                continue
+
+            parts = parse_command_line(
+                cmd_line.strip()
+            )
+
+            if parts is None:
+                continue
+
+            if not parts:
+                continue
+
+            command = parts[0].lower()
+
+            # ------------------------------------------------
+            # Exit
+            # ------------------------------------------------
+
+            if command in [
+                "exit",
+                "quit",
+                "q",
+            ]:
+                console.print(
+                    "[yellow]👋 Goodbye![/]"
+                )
+
+                break
+
+            # ------------------------------------------------
+            # Help
+            # ------------------------------------------------
+
+            if command in [
+                "help",
+                "?",
+            ]:
+                show_help()
+                continue
+
+            # ------------------------------------------------
+            # Convert
+            # ------------------------------------------------
+
+            if command == "convert":
+                handle_convert_command(
+                    parts[1:],
+                    service,
+                )
+
+                continue
+
+            # ------------------------------------------------
+            # Merge
+            # ------------------------------------------------
+
+            if command == "merge":
+                handle_merge_command(
+                    parts[1:]
+                )
+
+                continue
+
+            # ------------------------------------------------
+            # Unknown command
+            # ------------------------------------------------
+
+            console.print(
+                f"[red]❌ Unknown command:[/] '{command}'"
+            )
+
+            console.print(
+                "[yellow]💡 Type 'help' "
+                "for available commands.[/]"
+            )
+
+        except KeyboardInterrupt:
+            console.print(
+                "\n[yellow]👋 Goodbye![/]"
+            )
+
+            break
+
+        except EOFError:
+            console.print(
+                "\n[yellow]👋 Goodbye![/]"
+            )
+
+            break
+
+        except Exception as exc:
+            console.print(
+                f"[red]❌ Unexpected error:[/] {exc}"
+            )
+
+
+# ============================================================
+# Main
+# ============================================================
+
+def main() -> None:
+    """Entry point."""
+
+    # --------------------------------------------------------
+    # Interactive mode
+    # --------------------------------------------------------
+
+    if len(sys.argv) == 1:
+        interactive_shell()
+        return
+
+    # --------------------------------------------------------
+    # Help
+    # --------------------------------------------------------
+
+    if sys.argv[1] in [
+        "-h",
+        "--help",
+    ]:
+        print_header()
+
+        console.print(
+            "[bold cyan]PDFForge[/] "
+            "[dim]- Python PDF Toolkit[/]"
+        )
+
+        console.print()
+
+        console.print(
+            "[bold]Usage:[/]"
+        )
+
+        console.print(
+            "  [cyan]pdfforge[/] "
+            "                     # Interactive shell"
+        )
+
+        console.print(
+            "  [cyan]pdfforge convert <file>[/] "
+            "    # Convert PDF to images"
+        )
+
+        console.print(
+            "  [cyan]pdfforge merge ...[/] "
+            "              # Merge PDFs (coming soon)"
+        )
+
+        console.print(
+            "  [cyan]pdfforge --help[/] "
+            "               # Show this help"
+        )
+
+        console.print()
+
+        return
+
+    # --------------------------------------------------------
+    # Non-interactive command
+    # --------------------------------------------------------
+
+    run_non_interactive(
+        sys.argv[1:]
+    )
+
+
+# ============================================================
+# Script Entry Point
+# ============================================================
 
 if __name__ == "__main__":
     main()
