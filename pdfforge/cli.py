@@ -54,7 +54,7 @@ logger = CliLogger()
 
 
 # ============================================================
-# Clean Shell Operators (NEW)
+# Clean Shell Operators
 # ============================================================
 
 def clean_shell_operators(args: List[str]) -> List[str]:
@@ -184,6 +184,18 @@ def show_help() -> None:
     )
 
     table.add_row(
+        "convert (page selection)",
+        "Select pages: all, single, or range",
+        "convert document.pdf --pages 5-10",
+    )
+
+    table.add_row(
+        "convert (output dir)",
+        "Custom output directory",
+        "convert document.pdf --output-dir my_images",
+    )
+
+    table.add_row(
         "merge",
         "Merge PDFs (coming soon)",
         "merge file1.pdf file2.pdf --output merged.pdf",
@@ -207,6 +219,10 @@ def show_help() -> None:
     examples = Panel(
         "[bold]Quick Examples:[/]\n"
         "  [cyan]convert document.pdf --zoom 2.5 --format png[/]\n"
+        "  [cyan]convert document.pdf --pages 5[/]              # Single page\n"
+        "  [cyan]convert document.pdf --pages 20-46[/]          # Range\n"
+        "  [cyan]convert document.pdf --pages 1,3,5-10,20[/]    # Mixed\n"
+        "  [cyan]convert document.pdf --output-dir my_images[/] # Custom output dir\n"
         "  [cyan]convert \"My Report.pdf\" --format jpg[/]\n"
         "  [cyan]merge chapter1.pdf chapter2.pdf --output full_book.pdf[/]\n"
         "  [cyan]help[/]\n"
@@ -247,30 +263,49 @@ def handle_convert_command(
 ) -> bool:
     """Handle 'convert' command. Returns True on success."""
 
-    # Clean shell operators from arguments (NEW)
+    # Clean shell operators from arguments
     args = clean_shell_operators(args)
 
     parser = argparse.ArgumentParser(
         prog="convert",
-        description="Convert PDF to images",
+        description="Convert PDF pages to images",
         add_help=False,
     )
 
     parser.add_argument(
         "input_parts",
         nargs="*",
+        help="Path to the PDF file (supports spaces without quotes)",
+    )
+
+    parser.add_argument(
+        "--pages",
+        type=str,
+        default=None,
+        help="Page selection: all (default), single (e.g., 5), "
+             "range (e.g., 5-10), or list (e.g., 1,3,5-10)",
+    )
+
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=None,
+        help="Output directory name. If not provided, auto-generates "
+             "(images, images_1, images_2, ...)",
     )
 
     parser.add_argument(
         "--zoom",
         type=float,
         default=2.0,
+        help="Zoom factor for image quality (default: 2.0)",
     )
 
     parser.add_argument(
         "--format",
         choices=["png", "jpg"],
         default="png",
+        help="Output image format (default: png)",
     )
 
     try:
@@ -284,6 +319,8 @@ def handle_convert_command(
         console.print(
             "[yellow]💡 Usage: "
             "convert <pdf_file> "
+            "[--pages PAGES] "
+            "[--output-dir DIR] "
             "[--zoom ZOOM] "
             "[--format {png,jpg}][/]"
         )
@@ -298,6 +335,8 @@ def handle_convert_command(
         console.print(
             "[yellow]💡 Usage: "
             "convert <pdf_file> "
+            "[--pages PAGES] "
+            "[--output-dir DIR] "
             "[--zoom ZOOM] "
             "[--format {png,jpg}][/]"
         )
@@ -331,6 +370,31 @@ def handle_convert_command(
         return False
 
     # --------------------------------------------------------
+    # Parse pages
+    # --------------------------------------------------------
+
+    pages = parsed_args.pages
+    if pages is not None and pages.lower() == "all":
+        pages = None
+
+    # --------------------------------------------------------
+    # Parse output directory
+    # --------------------------------------------------------
+
+    output_dir_name = parsed_args.output_dir
+
+    # Display info
+    if pages is None:
+        page_info = "[green]All pages[/]"
+    else:
+        page_info = f"[yellow]'{pages}'[/]"
+
+    if output_dir_name is None:
+        dir_info = "[green]Auto-generated (images, images_1, ...)[/]"
+    else:
+        dir_info = f"[yellow]'{output_dir_name}'[/]"
+
+    # --------------------------------------------------------
     # Conversion information
     # --------------------------------------------------------
 
@@ -343,6 +407,14 @@ def handle_convert_command(
 
     console.print(
         f"[dim]   Location: {pdf_path.parent}[/]"
+    )
+
+    console.print(
+        f"[dim]   Pages: {page_info}[/]"
+    )
+
+    console.print(
+        f"[dim]   Output Dir: {dir_info}[/]"
     )
 
     console.print(
@@ -391,6 +463,8 @@ def handle_convert_command(
                 pdf_path=pdf_path,
                 zoom=parsed_args.zoom,
                 output_format=parsed_args.format,
+                pages=pages,
+                output_dir_name=output_dir_name,
                 progress_callback=update_progress,
             )
 
@@ -410,6 +484,11 @@ def handle_convert_command(
             f"[bold green]✅ Success![/] "
             f"Generated [cyan]{len(result)}[/] images."
         )
+
+        if result:
+            # Show output directory
+            output_dir = result[0].parent
+            console.print(f"[dim]   Output folder: {output_dir}[/]")
 
         console.print()
 
@@ -476,7 +555,7 @@ def run_non_interactive(args: List[str]) -> None:
     if not args:
         return
 
-    # Clean shell operators (NEW)
+    # Clean shell operators
     args = clean_shell_operators(args)
 
     if not args:
@@ -547,7 +626,7 @@ def interactive_shell() -> None:
             if not parts:
                 continue
 
-            # Clean shell operators (NEW)
+            # Clean shell operators
             parts = clean_shell_operators(parts)
 
             if not parts:
@@ -681,6 +760,16 @@ def main() -> None:
         console.print(
             "  [cyan]pdfforge convert <file>[/] "
             "    # Convert PDF to images"
+        )
+
+        console.print(
+            "  [cyan]pdfforge convert <file> --pages PAGES[/] "
+            "  # Select pages"
+        )
+
+        console.print(
+            "  [cyan]pdfforge convert <file> --output-dir DIR[/] "
+            "  # Custom output directory"
         )
 
         console.print(
