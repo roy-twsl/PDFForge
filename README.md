@@ -8,30 +8,35 @@ The project follows clean software architecture principles, including **Clean Co
 
 ---
 
-##  Current Features
+## Current Features
 
 | Feature | Status |
 |---|---|
-| PDF → Images | ✅ Available |
-| Interactive CLI | ✅ Available |
-| Non-interactive CLI | ✅ Available |
-| Paths containing spaces without quotes | ✅ Available |
-| Colored terminal output | ✅ Available |
-| Progress indicators | ✅ Available |
-| Graceful `Ctrl+C` handling | ✅ Available |
-| Merge PDFs | 🚧 Planned |
-| Split PDFs | 🚧 Planned |
-| Extract Text | 🚧 Planned |
-| Encrypt / Decrypt PDFs | 🚧 Planned |
-| Rotate Pages | 🚧 Planned |
-| Compress PDFs | 🚧 Planned |
-| Add Watermarks | 🚧 Planned |
+| PDF → Images | Available |
+| Page Selection | Available |
+| Custom Output Directory | Available |
+| Automatic Unique Output Directories | Available |
+| Interactive CLI | Available |
+| Non-interactive CLI | Available |
+| Drag & Drop Support | Available |
+| Paths containing spaces without quotes | Available |
+| Shell Operator Handling | Available |
+| Colored terminal output | Available |
+| Real-time Progress Display | Available |
+| Graceful `Ctrl+C` handling | Available |
+| Merge PDFs | Planned |
+| Split PDFs | Planned |
+| Extract Text | Planned |
+| Encrypt / Decrypt PDFs | Planned |
+| Rotate Pages | Planned |
+| Compress PDFs | Planned |
+| Add Watermarks | Planned |
 
 More PDF operations will be added as the project evolves.
 
 ---
 
-##  Project Goals
+## Project Goals
 
 PDFForge aims to become a complete and extensible PDF toolkit for Python developers and everyday users.
 
@@ -47,7 +52,7 @@ The main goals of the project are:
 
 ---
 
-##  Design Philosophy
+## Design Philosophy
 
 PDFForge is designed around several important principles.
 
@@ -73,7 +78,7 @@ The CLI provides colored output, tables, panels, progress indicators, and an int
 
 ---
 
-#  Installation
+# Installation
 
 Clone the repository:
 
@@ -101,7 +106,7 @@ pip install -e .
 
 ---
 
-#  Usage
+# Usage
 
 PDFForge supports two primary CLI modes:
 
@@ -110,7 +115,7 @@ PDFForge supports two primary CLI modes:
 
 ---
 
-## 1. Interactive Mode
+## Interactive Mode
 
 Run PDFForge without any arguments:
 
@@ -120,7 +125,7 @@ pdfforge
 
 This starts the PDFForge Interactive Shell.
 
-The shell provides a professional terminal interface with:
+The shell provides:
 
 - Colored output
 - Command tables
@@ -177,7 +182,7 @@ Ctrl+C
 
 ---
 
-#  Converting PDF Files to Images
+# Converting PDF Files to Images
 
 PDFForge currently supports converting PDF pages into image files.
 
@@ -209,7 +214,67 @@ pdfforge convert document.pdf --zoom 2.5 --format png
 
 ---
 
-#  Paths Containing Spaces
+# Page Selection
+
+PDFForge can convert only selected pages instead of processing the entire PDF.
+
+Select a single page:
+
+```bash
+pdfforge convert document.pdf --pages 5
+```
+
+Select a range:
+
+```bash
+pdfforge convert document.pdf --pages 20-46
+```
+
+Select multiple pages:
+
+```bash
+pdfforge convert document.pdf --pages 1,3,5
+```
+
+Combine individual pages and ranges:
+
+```bash
+pdfforge convert document.pdf --pages 1,3,5-10,20
+```
+
+This allows you to process only the pages you need.
+
+---
+
+# Output Directory
+
+PDFForge supports both automatic and custom output directories.
+
+By default, PDFForge creates an available output directory for generated images. If a directory already exists, a unique directory name is generated instead of overwriting the existing output.
+
+For example:
+
+```text
+images/
+images_1/
+images_2/
+```
+
+You can also specify your own output directory:
+
+```bash
+pdfforge convert document.pdf --output-dir my_output
+```
+
+Page selection and a custom output directory can be combined:
+
+```bash
+pdfforge convert document.pdf --pages 1,3,5-10,20 --output-dir selected_pages
+```
+
+---
+
+# Paths Containing Spaces
 
 PDFForge supports paths containing spaces without requiring quotation marks.
 
@@ -225,7 +290,7 @@ The same functionality is available inside the interactive shell:
 pdfforge> convert D:/My Documents/Annual Report.pdf
 ```
 
-Quoting paths is also supported:
+Quoted paths are also supported:
 
 ```bash
 pdfforge convert "D:/My Documents/Annual Report.pdf"
@@ -233,7 +298,50 @@ pdfforge convert "D:/My Documents/Annual Report.pdf"
 
 ---
 
-#  Non-Interactive Mode
+# Drag & Drop Support
+
+PDF files can be dragged directly into the PDFForge terminal workflow.
+
+This is especially useful on Windows because a file path can be inserted into the terminal automatically instead of being typed manually.
+
+PDFForge is designed to handle common drag-and-drop path formatting, including paths containing spaces.
+
+---
+
+# Shell Operator Handling
+
+The interactive shell handles common shell operator characters that may appear when paths are pasted or dragged into the terminal.
+
+Examples include:
+
+```text
+&
+|
+;
+```
+
+These characters are handled so they do not unnecessarily break a PDF path during normal PDFForge shell usage.
+
+---
+
+# Real-time Progress
+
+PDFForge displays conversion progress while processing PDF pages.
+
+The progress display provides information such as:
+
+- Current page
+- Percentage completed
+- Elapsed time
+- Overall conversion progress
+
+This makes longer conversions easier to monitor.
+
+After a conversion, PDFForge limits the number of generated image paths displayed in the terminal when many files are produced, keeping the output clean and readable.
+
+---
+
+# Non-Interactive Mode
 
 PDFForge can also be used directly from the command line without entering the interactive shell.
 
@@ -243,23 +351,29 @@ Example:
 pdfforge convert document.pdf
 ```
 
-With custom zoom:
+With page selection:
 
 ```bash
-pdfforge convert document.pdf --zoom 2.0
+pdfforge convert document.pdf --pages 1,3,5-10
 ```
 
-With a different image format:
+With a custom output directory:
 
 ```bash
-pdfforge convert document.pdf --format jpg
+pdfforge convert document.pdf --output-dir output
+```
+
+With custom zoom and format:
+
+```bash
+pdfforge convert document.pdf --zoom 2.0 --format jpg
 ```
 
 This mode is useful for scripts, automation, and command-line workflows.
 
 ---
 
-#  Help
+# Help
 
 To display the main help information:
 
@@ -277,7 +391,7 @@ The interactive help system displays the available commands, descriptions, and e
 
 ---
 
-#  Interrupting Operations
+# Interrupting Operations
 
 PDFForge is designed to handle user interruption gracefully.
 
@@ -289,11 +403,11 @@ Ctrl+C
 
 during an interactive session exits the shell cleanly.
 
-If `Ctrl+C` is pressed during a PDF conversion, the conversion is interrupted and the application handles the interruption without producing an unhandled traceback.
+If `Ctrl+C` is pressed during a PDF conversion, the current operation is interrupted and the application handles the interruption without producing an unnecessary unhandled traceback.
 
 ---
 
-#  Project Structure
+# Project Structure
 
 The project is organized into separate layers and components to keep responsibilities isolated.
 
@@ -306,6 +420,7 @@ PDFForge/
 │   ├── core/
 │   ├── services/
 │   ├── operations/
+│   │   └── convert/
 │   └── cli.py
 │
 ├── tests/
@@ -321,7 +436,7 @@ The exact structure may evolve as new PDF operations are added.
 
 ---
 
-#  Adding a New PDF Operation
+# Adding a New PDF Operation
 
 PDFForge is designed to make adding new PDF operations straightforward.
 
@@ -340,7 +455,7 @@ The goal is to keep new functionality isolated rather than creating unnecessary 
 
 ---
 
-#  Contributing
+# Contributing
 
 Contributions are welcome.
 
@@ -363,7 +478,7 @@ CONTRIBUTING.md
 
 ---
 
-#  Development Workflow
+# Development Workflow
 
 A typical contribution workflow is:
 
@@ -390,7 +505,7 @@ For larger changes, please describe what was changed and why.
 
 ---
 
-#  Code Quality
+# Code Quality
 
 When contributing to PDFForge, try to follow these principles:
 
@@ -410,27 +525,34 @@ For CLI-related changes, use the existing `Rich`-based presentation style instea
 
 ---
 
-#  Testing
+# Testing
 
 Before submitting a Pull Request, contributors should verify that their changes do not break existing functionality.
 
 At minimum, test:
 
 - PDF conversion
+- Page selection
+- Custom output directories
+- Automatic unique output directories
 - Interactive shell startup
 - `help`
 - `convert`
 - Paths containing spaces
+- Quoted paths
+- Drag & drop input
+- Shell operator handling
 - `Ctrl+C` handling
 - Invalid commands
 - Invalid input files
 - Non-interactive CLI usage
+- Progress display
 
 If tests are added or modified, make sure they pass before opening the Pull Request.
 
 ---
 
-#  Roadmap
+# Roadmap
 
 The long-term goal of PDFForge is to provide a complete PDF toolkit.
 
@@ -452,7 +574,7 @@ The roadmap may change as the project develops.
 
 ---
 
-#  Contact
+# Contact
 
 **Maintainer:** Roy
 
@@ -464,7 +586,7 @@ For bugs, feature requests, and technical discussions, please use the GitHub rep
 
 ---
 
-#  License
+# License
 
 PDFForge is released under the **GNU General Public License v3.0**.
 
@@ -484,7 +606,7 @@ See the [`LICENSE`](LICENSE) file for the complete license text.
 
 ---
 
-#  Acknowledgements
+# Acknowledgements
 
 PDFForge is built with the help of the Python open-source ecosystem.
 
@@ -492,7 +614,7 @@ Special thanks to the projects and communities that make modern PDF processing p
 
 ---
 
-#  About PDFForge
+# About PDFForge
 
 PDFForge is an open-source project created with the goal of building a powerful, maintainable, and extensible PDF toolkit for Python.
 
@@ -503,5 +625,3 @@ The project is continuously evolving, and new PDF operations and improvements wi
 ---
 
 Copyright © 2026 Roy
-
-Licensed under the GNU General Public License v3.0.
